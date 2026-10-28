@@ -1,0 +1,162 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information with contact details and saved preferences.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the user document matching the authenticated user ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Primary phone number for delivery contact in Bangladesh."
+        },
+        "defaultAddress": {
+          "type": "string",
+          "description": "Default delivery address."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp set by FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp set by FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "name", "email", "createdAt"]
+    },
+    "OrderRecord": {
+      "title": "OrderRecord",
+      "description": "A food delivery order placed by the user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique order identifier."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user who placed the order."
+        },
+        "restaurantId": {
+          "type": "string",
+          "description": "Identifier of the restaurant ordered from."
+        },
+        "restaurantName": {
+          "type": "string",
+          "description": "Name of the restaurant."
+        },
+        "itemsCount": {
+          "type": "integer",
+          "description": "Total count of food items in the order."
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total order amount in BDT (৳)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PLACED", "PREPARING", "ON_THE_WAY", "DELIVERED", "CANCELLED"],
+          "description": "Current lifecycle status of the delivery order."
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "description": "Delivery address destination in Dhaka."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number for this order."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment method chosen (e.g., COD, bKash)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when order was submitted."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last status change."
+        }
+      },
+      "required": ["userId", "restaurantId", "restaurantName", "itemsCount", "totalAmount", "status", "deliveryAddress", "phone", "paymentMethod", "createdAt"]
+    },
+    "FavoriteItem": {
+      "title": "FavoriteItem",
+      "description": "A saved favorite restaurant for quick access.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Document ID matching the restaurant ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user."
+        },
+        "restaurantId": {
+          "type": "string",
+          "description": "Identifier of the bookmarked restaurant."
+        },
+        "restaurantName": {
+          "type": "string",
+          "description": "Display name of the bookmarked restaurant."
+        },
+        "cuisine": {
+          "type": "string",
+          "description": "Cuisine type of the restaurant."
+        },
+        "rating": {
+          "type": "number",
+          "description": "Current restaurant review rating."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when added to favorites."
+        }
+      },
+      "required": ["userId", "restaurantId", "restaurantName", "cuisine", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "User profile documents containing personal settings and contact info."
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/OrderRecord"
+      },
+      "description": "Orders placed by the user, stored under their user document."
+    },
+    "/users/{userId}/favorites/{favoriteId}": {
+      "schema": {
+        "$ref": "#/entities/FavoriteItem"
+      },
+      "description": "Favorite restaurants saved by the user."
+    }
+  }
+}

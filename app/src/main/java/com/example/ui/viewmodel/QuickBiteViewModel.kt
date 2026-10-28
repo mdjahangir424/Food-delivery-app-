@@ -14,6 +14,7 @@ import com.example.data.model.FoodItem
 import com.example.data.model.FoodSize
 import com.example.data.model.PromoCode
 import com.example.data.model.Restaurant
+import com.example.data.firestore.QuickBiteFirestoreRepository
 import com.example.data.preferences.NotificationPreferences
 import com.example.data.preferences.UserPreferencesRepository
 import com.example.data.repository.AddressRepository
@@ -24,6 +25,10 @@ import com.example.data.repository.OrderRepository
 import com.example.service.QuickBiteNotificationManager
 import com.example.ui.localization.AppLanguage
 import com.example.ui.localization.AppStrings
+import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
@@ -60,6 +65,27 @@ class QuickBiteViewModel(application: Application) : AndroidViewModel(applicatio
     val orderRepo = OrderRepository(database.orderDao())
     val favRepo = FavoritesRepository(database.favoriteDao())
     val addressRepo = AddressRepository(database.addressDao())
+    val firestoreRepo = QuickBiteFirestoreRepository(application)
+
+    // Firebase Auth session
+    private val _currentUser = MutableStateFlow<FirebaseUser?>(Firebase.auth.currentUser)
+    val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
+
+    init {
+        Firebase.auth.addAuthStateListener { auth ->
+            _currentUser.value = auth.currentUser
+            auth.currentUser?.let { user ->
+                viewModelScope.launch {
+                    firestoreRepo.saveUserProfile(
+                        name = user.displayName ?: "QuickBite Foodie",
+                        email = user.email ?: "",
+                        phone = user.phoneNumber ?: "",
+                        defaultAddress = _selectedArea.value.nameBn
+                    )
+                }
+            }
+        }
+    }
 
     // Navigation Stack
     private val _navigationStack = MutableStateFlow<List<Screen>>(listOf(Screen.Splash))
@@ -386,6 +412,22 @@ class QuickBiteViewModel(application: Application) : AndroidViewModel(applicatio
                 prefs = notificationPreferences.value
             )
 
+            // Cloud Firestore sync when authenticated
+            if (Firebase.auth.currentUser != null) {
+                val restId = items.firstOrNull()?.restaurantId ?: "rest_1"
+                firestoreRepo.createOrder(
+                    orderId = order.orderId,
+                    restaurantId = restId,
+                    restaurantName = if (strings.value.isBn) order.restaurantNameBn else order.restaurantNameEn,
+                    itemsCount = order.itemCount,
+                    totalAmount = order.grandTotal.toDouble(),
+                    status = "PLACED",
+                    deliveryAddress = fullAddress,
+                    phone = phone,
+                    paymentMethod = paymentMethod
+                )
+            }
+
             onSuccess(order)
         }
     }
@@ -410,6 +452,11 @@ class QuickBiteViewModel(application: Application) : AndroidViewModel(applicatio
                 isBn = strings.value.isBn,
                 prefs = notificationPreferences.value
             )
+
+            // Sync updated status to Cloud Firestore when authenticated
+            if (Firebase.auth.currentUser != null) {
+                firestoreRepo.updateOrderStatus(orderId, nextStatus)
+            }
         }
     }
 
@@ -433,6 +480,20 @@ class QuickBiteViewModel(application: Application) : AndroidViewModel(applicatio
     fun toggleRestaurantFavorite(restaurant: Restaurant, isFav: Boolean) {
         viewModelScope.launch {
             favRepo.toggleRestaurantFavorite(restaurant, isFav)
+
+            // Sync favorite to Cloud Firestore when authenticated
+            if (Firebase.auth.currentUser != null) {
+                if (!isFav) {
+                    firestoreRepo.saveFavorite(
+                        restaurantId = restaurant.id,
+                        restaurantName = restaurant.nameEn,
+                        cuisine = restaurant.cuisineEn,
+                        rating = restaurant.rating.toDouble()
+                    )
+                } else {
+                    firestoreRepo.removeFavorite(restaurant.id)
+                }
+            }
         }
     }
 

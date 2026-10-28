@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId == request.auth.uid &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 120 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+             (!('defaultAddress' in data) || (data.defaultAddress is string && data.defaultAddress.size() <= 300)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidOrderRecord(data) {
+      return data.userId == request.auth.uid &&
+             data.restaurantId is string && data.restaurantId.size() > 0 && data.restaurantId.size() <= 64 &&
+             data.restaurantName is string && data.restaurantName.size() > 0 && data.restaurantName.size() <= 120 &&
+             data.itemsCount is int && data.itemsCount > 0 && data.itemsCount <= 200 &&
+             (data.totalAmount is int || data.totalAmount is float) && data.totalAmount >= 0 &&
+             data.status in ['PLACED', 'PREPARING', 'ON_THE_WAY', 'DELIVERED', 'CANCELLED'] &&
+             data.deliveryAddress is string && data.deliveryAddress.size() > 0 && data.deliveryAddress.size() <= 300 &&
+             data.phone is string && data.phone.size() > 0 && data.phone.size() <= 30 &&
+             data.paymentMethod is string && data.paymentMethod.size() > 0 && data.paymentMethod.size() <= 50 &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidFavoriteItem(data) {
+      return data.userId == request.auth.uid &&
+             data.restaurantId is string && data.restaurantId.size() > 0 && data.restaurantId.size() <= 64 &&
+             data.restaurantName is string && data.restaurantName.size() > 0 && data.restaurantName.size() <= 120 &&
+             data.cuisine is string && data.cuisine.size() > 0 && data.cuisine.size() <= 80 &&
+             (!('rating' in data) || ((data.rating is int || data.rating is float) && data.rating >= 0 && data.rating <= 5)) &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow list: if isSignedIn() && request.auth.uid == userId;
+      allow get: if isOwner(userId) && isValidId(userId);
+
+      allow create: if isOwner(userId) && isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'name', 'email', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'name', 'email', 'phone', 'defaultAddress', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) && isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'defaultAddress', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /orders/{orderId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(orderId);
+
+        allow create: if isOwner(userId) && isValidId(orderId) &&
+                         incoming().keys().hasAll(['userId', 'restaurantId', 'restaurantName', 'itemsCount', 'totalAmount', 'status', 'deliveryAddress', 'phone', 'paymentMethod', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'userId', 'restaurantId', 'restaurantName', 'itemsCount', 'totalAmount', 'status', 'deliveryAddress', 'phone', 'paymentMethod', 'createdAt', 'updatedAt']) &&
+                         isValidOrderRecord(incoming());
+
+        allow update: if isOwner(userId) && isValidId(orderId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidOrderRecord(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'deliveryAddress', 'phone', 'paymentMethod', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(orderId);
+      }
+
+      match /favorites/{favoriteId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(favoriteId);
+
+        allow create: if isOwner(userId) && isValidId(favoriteId) &&
+                         incoming().keys().hasAll(['userId', 'restaurantId', 'restaurantName', 'cuisine', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'userId', 'restaurantId', 'restaurantName', 'cuisine', 'rating', 'createdAt']) &&
+                         isValidFavoriteItem(incoming());
+
+        allow update: if isOwner(userId) && isValidId(favoriteId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidFavoriteItem(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['restaurantName', 'cuisine', 'rating']);
+
+        allow delete: if isOwner(userId) && isValidId(favoriteId);
+      }
+    }
+  }
+}

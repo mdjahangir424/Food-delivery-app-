@@ -15,8 +15,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.credentials.CredentialManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.auth.QuickBiteAuthManager
 import com.example.service.QuickBiteNotificationManager
 import com.example.ui.components.DeliveryAreaBottomSheet
 import com.example.ui.components.FoodDetailBottomSheet
@@ -66,6 +68,16 @@ class MainActivity : ComponentActivity() {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                     }
+
+                    // Attempt silent auto-sign in with CredentialManager on startup
+                    val credentialManager = CredentialManager.create(this@MainActivity)
+                    QuickBiteAuthManager.attemptAutoSignIn(
+                        context = this@MainActivity,
+                        credentialManager = credentialManager,
+                        onAuthSuccess = {},
+                        onUnauthenticated = {},
+                        scope = this
+                    )
 
                     // Handle notification launch intent
                     handleNotificationIntent(pendingIntent, viewModel)
