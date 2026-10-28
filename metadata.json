@@ -1,0 +1,6 @@
+{
+  "name": "QuickBite",
+  "description": "Authentic Bengali-first food delivery app for Bangladesh featuring Dhaka restaurants, menu browsing, cart, checkout, order tracking, and language toggle.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
